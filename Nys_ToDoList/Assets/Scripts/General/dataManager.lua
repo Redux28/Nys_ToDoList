@@ -755,6 +755,7 @@ function dataManager:CreateTab(tabName, isGlobal)
 		deleteCheckedItems = false, -- user set
 		hideCompletedCategories = false, -- user set
 		hideEmptyCategories = false, -- user set
+		perCharacter = false, -- user set
 	}
 
 	resetManager:InitTabData(tabData)
@@ -1596,7 +1597,7 @@ function dataManager:IsHidden(ID, tabID)
 	local tabData = select(3, dataManager:Find(tabID))
 
 	if enum == enums.item then
-		return tabData.hideCheckedItems and objectData.checked
+		return tabData.hideCheckedItems and dataManager:IsItemChecked(objectData)
 	elseif enum == enums.category then
 		return (tabData.hideCompletedCategories and dataManager:IsCategoryCompleted(ID))
 		or (tabData.hideEmptyCategories and dataManager:GetCatCheckedNumbers(ID) <= 0)
@@ -1618,14 +1619,26 @@ end
 ---@param state nil|false|true nil => toggle | false => uncheck | true => check
 ---@return boolean newState
 function dataManager:ToggleChecked(itemID, state)
-	local itemData = select(3, dataManager:Find(itemID))
-
+	local isGlobal, itemData = select(2, dataManager:Find(itemID))
+	local currentState = dataManager:IsItemChecked(itemData)
+	
+	local newState
 	if state == nil then
-		itemData.checked = not itemData.checked
+		newState = not currentState
 	elseif state == false then
-		itemData.checked = false
+		newState = false
 	elseif state == true then
-		itemData.checked = true
+		newState = true
+	end
+
+	local tabData = select(3, dataManager:Find(itemData.originalTabID))
+	
+	if isGlobal and tabData.perCharacter then
+		local playerName = UnitName("player") .. "-" .. GetRealmName()
+		if type(itemData.characterChecked) ~= "table" then itemData.characterChecked = {} end
+		itemData.characterChecked[playerName] = newState
+	else
+		itemData.checked = newState
 	end
 
 	-- refresh the mainFrame
@@ -1635,7 +1648,7 @@ function dataManager:ToggleChecked(itemID, state)
 		mainFrame:UpdateVisuals()
 	end
 
-	return itemData.checked
+	return newState
 end
 
 ---Changes the favorite state of the given item.
@@ -1910,7 +1923,7 @@ local T_DeleteCheckedItems = {}
 function dataManager:DeleteCheckedItems(tabID)
 	wipe(T_DeleteCheckedItems)
 	for itemID,itemData in dataManager:ForEach(enums.item, tabID) do
-		if itemData.originalTabID == tabID and itemData.checked then -- if the item is native to the tab and checked
+		if itemData.originalTabID == tabID and dataManager:IsItemChecked(itemData) then -- if the item is native to the tab and checked
 			T_DeleteCheckedItems[itemID] = itemData
 		end
 	end
@@ -2055,7 +2068,7 @@ function dataManager:GetRemainingNumbers(isGlobal, tabID, catID)
 	local location = catID or tabID or isGlobal
 	for _,itemData in dataManager:ForEach(enums.item, location) do -- for each item that is in the location
 		if not tabID or itemData.tabIDs[tabID] then
-			if itemData.checked then
+			if dataManager:IsItemChecked(itemData) then
 				t.totalChecked = t.totalChecked + 1
 				if itemData.description then t.checkedDesc = t.checkedDesc + 1 end
 				if itemData.favorite then t.checkedFav = t.checkedFav + 1 end
@@ -2112,7 +2125,7 @@ function dataManager:GetCatNumbers(catID)
 		elseif widget.enum == enums.item then
 			t.items = t.items + 1
 			local itemData = widget.itemData
-			if itemData.checked then t.checked = t.checked + 1 end
+			if dataManager:IsItemChecked(itemData) then t.checked = t.checked + 1 end
 			if itemData.description then t.desc = t.desc + 1 end
 			if itemData.favorite then t.favs = t.favs + 1 end
 			if not itemData.description and not itemData.favorite then t.normal = t.normal + 1 end
@@ -2148,9 +2161,26 @@ function dataManager:GetCatCheckedNumbers(catID)
 			total, checked = total + subTotal, checked + subChecked
 		elseif widget.enum == enums.item then
 			total = total + 1
-			if widget.itemData.checked then checked = checked + 1 end
+			if dataManager:IsItemChecked(widget.itemData) then checked = checked + 1 end
 		end
 	end
 
 	return total, checked
+end
+---Returns whether the item is checked for the current character (or globally if the option isn't set)
+---@param itemData table
+---@return boolean
+function dataManager:IsItemChecked(itemData)
+	local isGlobal = dataManager:IsGlobal(itemData.originalTabID)
+	local tabData = select(3, dataManager:Find(itemData.originalTabID))
+	
+	if isGlobal and tabData.perCharacter then
+		local playerName = UnitName("player") .. "-" .. GetRealmName()
+		if type(itemData.characterChecked) == "table" then
+			return not not itemData.characterChecked[playerName]
+		end
+		return false
+	end
+	
+	return not not itemData.checked
 end
