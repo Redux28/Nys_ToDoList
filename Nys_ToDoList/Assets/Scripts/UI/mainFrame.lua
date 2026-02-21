@@ -220,7 +220,7 @@ end
 function mainFrame:UpdateCheckedStates()
 	for _,contentWidget in pairs(contentWidgets) do
 		if contentWidget.enum == enums.item then -- for every item checkboxes
-			contentWidget.checkBtn:SetChecked(contentWidget.itemData.checked)
+			contentWidget.checkBtn:SetChecked(dataManager:IsItemChecked(contentWidget.itemData))
 		end
 	end
 end
@@ -274,7 +274,7 @@ function mainFrame:UpdateItemNamesColor()
 	for _, contentWidget in pairs(contentWidgets) do
 		if contentWidget.enum == enums.item then -- for every item widget
 			-- we color in accordance to their checked state
-			if contentWidget.itemData.checked then
+			if dataManager:IsItemChecked(contentWidget.itemData) then
 				contentWidget.interactiveLabel.Text:SetTextColor(0, 1, 0) -- green
 			else
 				if contentWidget.itemData.favorite then
