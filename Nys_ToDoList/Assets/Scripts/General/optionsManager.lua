@@ -220,6 +220,26 @@ local tabManagementTable = {
 							return tabData.deleteCheckedItems
 						end,
 					},
+					perCharacterToggle = {
+						order = 1.3,
+						type = "toggle",
+						name = "Per-character completion",
+						desc = "Track task completion separately for each character. (Only works on Global tabs)",
+						get = function(info)
+							local _, tabData = private:GetTabInfo(info)
+							return tabData.perCharacter
+						end,
+						set = function(info, state)
+							local _, tabData = private:GetTabInfo(info)
+							tabData.perCharacter = state
+							mainFrame:Refresh()
+						end,
+						hidden = function(info)
+							local tabID = private:GetTabInfo(info)
+							local isGlobal = dataManager:IsGlobal(tabID)
+							return not isGlobal -- Option will dynamically hide on profile tabs
+						end,
+					},
 				},
 			},
 			groupCategorySettings = {
